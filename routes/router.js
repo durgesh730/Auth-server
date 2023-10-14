@@ -3,27 +3,9 @@ const userdb = require("../models/userSchema");
 const router = new express.Router();
 const bcrypt = require('bcryptjs');
 const authenticate = require("../middleware/authenticate");
-const nodemailer = require("nodemailer");
-const jwt = require("jsonwebtoken")
-
-
-const keysecret = "durgeshchaudharydurgeshchaudhary";
-
-// email config
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: "durgeshchaudhary020401@gmail.com",
-        pass: "lqfxwpogsaocehjc"
-    }
-})
-
 
 /// for user rgistration 
-
 router.post('/register', async (req, res) => {
-    // console.log(req.body);
-
     const { fname, email, password, cpassword } = req.body;
 
     if (!fname || !email || !password || !cpassword) {
@@ -42,7 +24,6 @@ router.post('/register', async (req, res) => {
 
             // here password hashing
             const storeData = await finalUser.save();
-            //  console.log(storeData);
             res.status(201).json({ status: 201, storeData })
         }
 
@@ -98,8 +79,6 @@ router.post("/login", async (req, res) => {
 });
 
 
-
-
 // user valid
 router.get("/validuser", authenticate, async (req, res) => {
     try {
@@ -109,100 +88,6 @@ router.get("/validuser", authenticate, async (req, res) => {
         res.status(401).json({ status: 401, error });
     }
 });
-
-// send email link for reset password
-
-router.post("/sendpasswordlink", async (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-        res.status(401).json({ status: 401, message: "Enter Your Email" })
-    }
-
-    try {
-        const userfind = await userdb.findOne({ email: email });
-
-        // token generate for reset password
-        const token = jwt.sign({ _id: userfind._id }, keysecret,
-            {
-                expiresIn: "1d"
-            })
-        const setusertoken = await userdb.findByIdAndUpdate({ _id: userfind._id }, { verifytoken: token }, { new: true })
-
-        if (setusertoken) {
-            const mailOptions = {
-                from: "durgeshchaudhary020401@gmail.com",
-                to: email,
-                subject: "sending email of password Reset",
-                text: `this link valid for 2 minutes http://localhost:3000/forgotpassword/${userfind.id}/${setusertoken.verifytoken}`
-            }
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.log('error', error);
-                    res.status(401).json({ status: 401, message: "email not send" })
-                } else {
-                    console.log("Email sent ", info.response);
-                    res.status(201).json({ status: 201, message: "email send successfully" })
-                }
-            })
-        }
-    } catch (error) {
-        res.status(201).json({ status: 201, message: "Invalid user" })
-    }
-})
-
-
-// verify user for forgot password time
-
-router.get("/forgotpassword/:id/:token", async (req, res) => {
-    const { id, token } = req.params;
-    try {
-        const validuser = await userdb.findOne({ _id: id, verifytoken: token });
-
-        // verify user token 
-        const verifyToken = jwt.verify(token, keysecret);
-
-        if (validuser && verifyToken._id) {
-            res.status(201).json({ status: 201, validuser })
-        } else {
-            res.status(401).json({ status: 401, message: "user not exist" })
-        }
-
-    } catch (error) {
-        res.status(401).json({ status: 401, error })
-    }
-
-});
-
-// change password
-
-router.post("/:id/:token", async (req, res) => {
-    const { id, token } = req.params;
-    const { password } = req.body;
-    try {
-
-        const validuser = await userdb.findOne({ _id: id, verifytoken: token });
-
-        // verify user token 
-        const verifyToken = jwt.verify(token, keysecret);
-
-        if (validuser && verifyToken._id) {
-            const newpassword = await bcrypt.hash(password, 12)
-
-            // update user password
-            const setnewuserpass = await userdb.findByIdAndUpdate({ _id: id }, { password: newpassword });
-
-            setnewuserpass.save()  //save user
-            res.status(201).json({ status: 201, setnewuserpass })
-
-        } else {
-            res.status(401).json({ status: 401, message: "user not exist" })
-        }
-    } catch (error) {
-        res.status(401).json({ status: 401, error })
-    }
-})
 
 router.put('/api/forms/:id', async (req, res) => {
     const id = req.params.id;
